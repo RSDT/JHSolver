@@ -12,15 +12,10 @@ namespace JHsolver
     {
         static void Main(string[] args)
         {
-            var databaseBuilder = new DatabaseBuiler("./database/");
-            databaseBuilder.fillDatabase();
+            var database = new Database("./database/");
+            database.Build();
             Console.Out.WriteLine("done");
             Thread.Sleep(10000);
-        }
-
-        public static async Task test()
-        {
-            
         }
     }
 }
