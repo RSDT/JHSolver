@@ -12,10 +12,17 @@ namespace JHsolver
     {
         static void Main(string[] args)
         {
+            var start = DateTime.Now;
             var database = new Database("./database/");
             database.Build();
+            Console.Out.WriteLine(DateTime.Now - start);
             Console.Out.WriteLine("done");
-            Thread.Sleep(10000);
+            using (StreamWriter outputFile = new StreamWriter(filename, true))
+            {
+
+                outputFile.WriteLine(DateTime.Now);
+                outputFile.WriteLine(DateTime.Now - start);
+            }
         }
     }
 }
