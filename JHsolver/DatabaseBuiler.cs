@@ -1,5 +1,4 @@
 ﻿using System;
-using System.CodeDom;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -13,16 +12,49 @@ namespace JHsolver
 		private DatabaseBuilder builder;
 		private DatabaseReader reader;
 		private readonly string path;
+        private bool build = false;
+        private static Dictionary<String, Database> databases;
 		public Database(string path)
 		{
 			this.path = path;
 			this.builder = new DatabaseBuilder (path);
 			this.reader = new DatabaseReader (path);
 		}
-
+        public static Database DatabaseMaker(string path)
+        {
+            ICollection<string> keys = null;
+            try {
+                if (true)
+                keys = databases.Keys;
+            } catch (NullReferenceException)
+            {
+                            }
+            bool contains;
+            if (keys != null)
+            {
+                contains = keys.Contains(path);
+            } else
+            {
+                contains = false;
+            }
+            if (!contains){
+                var db = new Database(path);
+                databases.Add(path, db );
+            }
+            return databases[path];
+        }
 		public void Build ()
 		{
-			builder.BuildDatabase ();
+            if (!exsits())
+            {
+                Directory.CreateDirectory(path);
+                builder.BuildDatabaseThreaded();
+                build = true;
+            }else
+            {
+                Console.Out.WriteLine("please remove the folder: " + path);
+            }
+			
 		}
 
 		/// <summary>
@@ -30,7 +62,12 @@ namespace JHsolver
 		/// </summary>
 		/// <returns> of de Database is opgebouwd.</returns>
 		public bool exsits (){
-			return Directory.Exists (path);
+            var result = Directory.Exists(path);
+            if (!result)
+            {
+                build = false;
+            }
+            return result;
 		}
 	}
 
@@ -47,6 +84,7 @@ namespace JHsolver
 	/// </summary>
     internal class DatabaseBuilder
     {
+        private List<ManualResetEvent> _doneEvents;
 		/// <summary>
 		/// The posible code elems.
 		/// </summary>
@@ -84,27 +122,49 @@ namespace JHsolver
 		/// Builds the database.
 		/// this can take up for a couple of hours,
 		/// </summary>
-		public void BuildDatabase()
-		{
-			List<ManualResetEvent> doneEvents= new List<ManualResetEvent>();
+		public void BuildDatabaseThreaded()
+        { 
+			_doneEvents= new List<ManualResetEvent>();
 			foreach (var code in ValidCodes())
 			{
-				doneEvents.Add (new ManualResetEvent(false));
-				ThreadPool.QueueUserWorkItem (WriteToFileWrapper, code);
+				_doneEvents.Add (new ManualResetEvent(false));
+				ThreadPool.QueueUserWorkItem (WriteToFileWrapper, new Tuple<string,int>(code,_doneEvents.Count -1));
+                if (_doneEvents.Count > 62)
+                {
+                    var doneEvents2 = new ManualResetEvent[_doneEvents.Count];
+                    for (var i = 0; i < _doneEvents.Count; i++)
+                    {
+                        doneEvents2[i] = _doneEvents[i];
+                    }
+                    WaitHandle.WaitAll(doneEvents2);
+                    _doneEvents = new List<ManualResetEvent>();
+                }
 			}
-			var doneEvents2 = new ManualResetEvent[doneEvents.Count];
-			for (var i = 0; i < doneEvents.Count; i++) {
-				doneEvents2 [i] = doneEvents [i];
+			var doneEvents3 = new ManualResetEvent[_doneEvents.Count];
+			for (var i = 0; i < _doneEvents.Count; i++) {
+				doneEvents3 [i] = _doneEvents [i];
 			}
-			WaitHandle.WaitAll (doneEvents2);
+			WaitHandle.WaitAll (doneEvents3);
 		}
-		/// <summary>
-		/// <see cref="WriteToFile"/>
+        /// <summary>
+		/// Builds the database.
+		/// this can take up for a couple of hours,
 		/// </summary>
-		/// <param name="threadContext">Thread context. wordt gecast naar een string.</param>
-		private void WriteToFileWrapper(Object threadContext){
-			string code  = (string) threadContext;
-			WriteToFile (code);
+		public void BuildDatabaseLinear()
+        {
+            foreach (var code in ValidCodes())
+            {
+                WriteToFile(code);
+            }
+        }
+        /// <summary>
+        /// <see cref="WriteToFile"/>
+        /// </summary>
+        /// <param name="threadContext">Thread context. wordt gecast naar een string.</param>
+        private void WriteToFileWrapper(Object threadContext){
+			var pair  = (Tuple<string,int>) threadContext;
+			WriteToFile (pair.Item1);
+            _doneEvents[pair.Item2].Set();
 		}
 
 
@@ -145,12 +205,23 @@ namespace JHsolver
 		/// <param name="code">Code.</param>
         private void WriteToFile(string code)
         {
-            var filename = folder + code + ".txt";
-            var file = new FileStream(filename,FileMode.Append,FileAccess.Write);
+            string filename = folder + code + ".txt";
+            //var file = new FileStream(filename,FileMode.Append,FileAccess.Write);
+            //file.Close();
             //file.Lock(0,file.Length);
-            Console.Out.WriteLine(file.Name);
-			return;
-			/*
+           //Console.Out.WriteLine(file.Name);
+            //File.Create(filename).Close();
+          
+                int i = 0;
+                Console.Out.WriteLine(code);
+                foreach (string line in ToCoords(code)){
+                    using (StreamWriter outputFile = new StreamWriter(filename,true)) {
+         
+                        outputFile.WriteLine(line);
+                    Console.Out.WriteLine(code + " "+ i++);
+                }
+            }
+            /*
             foreach (var coord in ToCoords(code))
             {
                 foreach (var elem in coord)
@@ -170,14 +241,16 @@ namespace JHsolver
 		/// <param name="x">The x coordinate.</param>
 		private bool isAllDifferent(string[] x)
         {
-            for (var i = 0; i < x.Length; i++)
+            for (var i = x.Length -1; i >= 0; i--)
             {
-                for (var j = 0; j < x.Length; j++)
+                for (var j = x.Length -1; j >= 0 ; j--)
                 {
+// Console.Out.WriteLine(x[i] + ".  ." + x[j] + "- " + (x[i] == x[j]));
                     if (i != j)
                     {
                         if (x[i] == x[j])
                         {
+                            
                             return false;
                         }
                     }
@@ -192,33 +265,63 @@ namespace JHsolver
 		/// <returns>possible </returns>
         private IEnumerable<string[]> allPossibleSolPermutations()
         {
-            foreach (var elem1 in posibleSolutionElems)
-            {
-                foreach (var elem2 in posibleSolutionElems)
-                {
-                    foreach (var elem3 in posibleSolutionElems)
+            string[] perm;
+            foreach (var elem1 in posibleSolutionElems){
+                foreach (var elem2 in posibleSolutionElems){
+                    perm = new string[] { elem1, elem2};
+                    if (isAllDifferent(perm))
                     {
-                        foreach (var elem4 in posibleSolutionElems)
-                        {
-                            foreach (var elem5 in posibleSolutionElems)
+                        foreach (var elem3 in posibleSolutionElems){
+                            perm = new string[] { elem1, elem2, elem3};
+                            if (isAllDifferent(perm))
                             {
-                                foreach (var elem6 in posibleSolutionElems)
+                                foreach (var elem4 in posibleSolutionElems)
                                 {
-                                    foreach (var elem7 in posibleSolutionElems)
+                                    perm = new string[] { elem1, elem2, elem3, elem4 };
+                                    if (isAllDifferent(perm))
                                     {
-                                        foreach (var elem8 in posibleSolutionElems)
+                                        foreach (var elem5 in posibleSolutionElems)
                                         {
-                                            foreach (var elem9 in posibleSolutionElems)
+                                            perm = new string[] { elem1, elem2, elem3, elem4, elem5 };
+                                            if (isAllDifferent(perm))
                                             {
-                                                foreach (var elem10 in posibleSolutionElems)
+                                                foreach (var elem6 in posibleSolutionElems)
                                                 {
-                                                    
-                                                    var perm = new string[]{ elem1 , elem2 , elem3 , elem4 , elem5 , elem6 , elem7 ,elem8 , elem9 , elem10};
-													if (isAllDifferent(perm))
+                                                    perm = new string[] { elem1, elem2, elem3, elem4, elem5, elem6 };
+                                                    if (isAllDifferent(perm))
                                                     {
-                                                        yield return perm;
+                                                        foreach (var elem7 in posibleSolutionElems)
+                                                        {
+                                                            perm = new string[] { elem1, elem2, elem3, elem4, elem5, elem6, elem7 };
+                                                            if (isAllDifferent(perm))
+                                                            {
+                                                                foreach (var elem8 in posibleSolutionElems)
+                                                                {
+                                                                    perm = new string[] { elem1, elem2, elem3, elem4, elem5, elem6, elem7, elem8 };
+                                                                    if (isAllDifferent(perm))
+                                                                    {
+                                                                        foreach (var elem9 in posibleSolutionElems)
+                                                                        {
+                                                                            perm = new string[] { elem1, elem2, elem3, elem4, elem5, elem6, elem7, elem8, elem9 };
+                                                                            if (isAllDifferent(perm))
+                                                                            {
+                                                                                foreach (var elem10 in posibleSolutionElems)
+                                                                                {
+
+                                                                                    perm = new string[] { elem1, elem2, elem3, elem4, elem5, elem6, elem7, elem8, elem9, elem10 };
+                                                                                    if (isAllDifferent(perm))
+                                                                                    {
+                                                                                        yield return perm;
+                                                                                    }
+
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
                                                     }
-                                                    
                                                 }
                                             }
                                         }
@@ -237,7 +340,8 @@ namespace JHsolver
             if (Code.Length != 10)
                 throw new ArgumentException();
             else
-            { 
+            {
+                var list = new HashSet<string>();
                 foreach (var perm in allPossibleSolPermutations())
                 {
                   string tempcode = (string) Code.Clone();
@@ -245,7 +349,11 @@ namespace JHsolver
                     {
                         tempcode = tempcode.Replace(posibleCodeElems[i], perm[i]);
                     }
-                    yield return tempcode;
+                    if (!list.Contains(tempcode))
+                    {
+                        list.Add(tempcode);
+                        yield return tempcode;
+                    }
                 }
             }
         }
