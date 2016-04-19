@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -53,6 +52,8 @@ namespace JHsolver
             }else
             {
                 Console.Out.WriteLine("please remove the folder: " + path);
+                builder.BuildDatabaseThreaded();
+                build = true;
             }
 			
 		}
@@ -115,16 +116,86 @@ namespace JHsolver
 		/// <returns>The codes.</returns>
 		private IEnumerable<string> ValidCodes()
         {
-            return AllCodes().Where(IsValidCode);
+            string code;
+            foreach (var elem1 in posibleCodeElems)
+            {
+                foreach (var elem2 in posibleCodeElems)
+                {
+                    code = elem1 + elem2;
+                    if (IsValidCode(code))
+                    {
+                        foreach (var elem3 in posibleCodeElems)
+                    {
+                            code = elem1 + elem2 + elem3 ;
+                            if (IsValidCode(code))
+                            {
+                                foreach (var elem4 in posibleCodeElems)
+                                {
+                                    code = elem1 + elem2 + elem3 + elem4;
+                                    if (IsValidCode(code))
+                                    {
+                                        foreach (var elem5 in posibleCodeElems)
+                                        {
+                                            code = elem1 + elem2 + elem3 + elem4 + elem5;
+                                            if (IsValidCode(code))
+                                            {
+                                                foreach (var elem6 in posibleCodeElems)
+                                                {
+                                                    foreach (var elem7 in posibleCodeElems)
+                                                    {
+                                                        code = elem1 + elem2 + elem3 + elem4 + elem5 + elem6 + elem7;
+                                                        if (IsValidCode(code))
+                                                        {
+                                                            foreach (var elem8 in posibleCodeElems)
+                                                            {
+                                                                code = elem1 + elem2 + elem3 + elem4 + elem5 + elem6 + elem7 + elem8;
+                                                                if (IsValidCode(code))
+                                                                {
+                                                                    foreach (var elem9 in posibleCodeElems)
+                                                                    {
+                                                                        code = elem1 + elem2 + elem3 + elem4 + elem5 + elem6 + elem7 + elem8 +
+                                                                                   elem9;
+                                                                        if (IsValidCode(code))
+                                                                        {
+                                                                            foreach (var elem10 in posibleCodeElems)
+                                                                            {
+                                                                                code = elem1 + elem2 + elem3 + elem4 + elem5 + elem6 + elem7 + elem8 +
+                                                                                    elem9 + elem10;
+                                                                                if (IsValidCode(code))
+                                                                                {
+                                                                                    yield return code;
+                                                                                }
+                                                                          
+                                                                                if (code == "abcdefghij")
+                                                                                {
+                                                                                    yield break;
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-
-		/// <summary>
-		/// Builds the database.
-		/// this can take up for a couple of hours,
-		/// </summary>
-		public void BuildDatabaseThreaded()
+        /// <summary>
+        /// Builds the database.
+        /// this can take up for a couple of hours,
+        /// </summary>
+        public void BuildDatabaseThreaded()
         { 
 			_doneEvents= new List<ManualResetEvent>();
+            var x = ValidCodes();
 			foreach (var code in ValidCodes())
 			{
 				_doneEvents.Add (new ManualResetEvent(false));
@@ -180,7 +251,7 @@ namespace JHsolver
         /// <returns>of er geen equivalente code is aan code</returns>
         private bool IsValidCode(string code)
         {
-			if (code [0] != 'a' || code.Length != 10) {
+			if (code [0] != 'a') {
 				return false;
 			}
             var highest = code[0];
@@ -206,6 +277,11 @@ namespace JHsolver
         private void WriteToFile(string code)
         {
             string filename = folder + code + ".txt";
+            if (File.Exists(filename))
+            {
+                Console.Out.WriteLine(code + " " + "al gedaan.");
+                return;
+            }
             //var file = new FileStream(filename,FileMode.Append,FileAccess.Write);
             //file.Close();
             //file.Lock(0,file.Length);
@@ -358,47 +434,7 @@ namespace JHsolver
             }
         }
 
-		private IEnumerable<string> AllCodes()
-        {
-            foreach (var elem1 in posibleCodeElems)
-            {
-                foreach (var elem2 in posibleCodeElems)
-                {
-                    foreach (var elem3 in posibleCodeElems)
-                    {
-                        foreach (var elem4 in posibleCodeElems)
-                        {
-							foreach (var elem5 in posibleCodeElems)
-                            {
-								foreach (var elem6 in posibleCodeElems)
-                                {
-									foreach (var elem7 in posibleCodeElems)
-                                    {
-										foreach (var elem8 in posibleCodeElems)
-                                        {
-											foreach (var elem9 in posibleCodeElems)
-                                            {
-												foreach (var elem10 in posibleCodeElems)
-                                                {
-                                                    var code = elem1 + elem2 + elem3 + elem4 + elem5 + elem6 + elem7 + elem8 +
-                                                        elem9 + elem10;
-                                                    yield return code;
-
-                                                    if (code == "abcdefghij")
-                                                    {
-                                                        yield break;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+		
          
     }
 }

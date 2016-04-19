@@ -1,10 +1,6 @@
 ﻿using System;
-using System.CodeDom;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+using System.IO;
+
 
 namespace JHsolver
 {
@@ -17,7 +13,7 @@ namespace JHsolver
             database.Build();
             Console.Out.WriteLine(DateTime.Now - start);
             Console.Out.WriteLine("done");
-            using (StreamWriter outputFile = new StreamWriter(filename, true))
+            using (StreamWriter outputFile = new StreamWriter("out.txt", true))
             {
 
                 outputFile.WriteLine(DateTime.Now);
